@@ -29,7 +29,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ class SummaryInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 @asynccontextmanager
-async def app_lifespan():
+async def app_lifespan(app):
     loader = StateLoader()
     yield {"loader": loader}
 
@@ -328,7 +328,7 @@ mcp = FastMCP("terraform_state_mcp", lifespan=app_lifespan)
         "openWorldHint": False,
     },
 )
-async def tf_list_resources(params: ListResourcesInput, ctx=None) -> str:
+async def tf_list_resources(params: ListResourcesInput, ctx: Context) -> str:
     """List all resources currently tracked in Terraform state.
 
     Provides a filterable inventory of every resource instance, including its
@@ -338,7 +338,7 @@ async def tf_list_resources(params: ListResourcesInput, ctx=None) -> str:
     Returns:
         str: Resource listing in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     resources = _extract_resources(state)
     filtered = [r for r in resources if _match_filter(r, params.type_filter, params.module_filter)]
@@ -374,7 +374,7 @@ async def tf_list_resources(params: ListResourcesInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_get_resource(params: GetResourceInput, ctx=None) -> str:
+async def tf_get_resource(params: GetResourceInput, ctx: Context) -> str:
     """Get the full attributes of a specific resource by its Terraform address.
 
     Returns all attribute values, dependencies, and sensitive attribute markers
@@ -383,7 +383,7 @@ async def tf_get_resource(params: GetResourceInput, ctx=None) -> str:
     Returns:
         str: Full resource details in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     resources = _extract_resources(state)
 
@@ -429,7 +429,7 @@ async def tf_get_resource(params: GetResourceInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_search_attributes(params: SearchAttributesInput, ctx=None) -> str:
+async def tf_search_attributes(params: SearchAttributesInput, ctx: Context) -> str:
     """Search for resources whose attributes match a given path and optional value.
 
     Useful for compliance checks like 'find all buckets without encryption',
@@ -441,7 +441,7 @@ async def tf_search_attributes(params: SearchAttributesInput, ctx=None) -> str:
     Returns:
         str: Matching resources with their attribute values.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     resources = _extract_resources(state)
 
@@ -498,13 +498,13 @@ async def tf_search_attributes(params: SearchAttributesInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_get_outputs(params: GetOutputsInput, ctx=None) -> str:
+async def tf_get_outputs(params: GetOutputsInput, ctx: Context) -> str:
     """List all Terraform outputs and their current values.
 
     Returns:
         str: Outputs listing in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     outputs = state.get("outputs", {})
 
@@ -537,7 +537,7 @@ async def tf_get_outputs(params: GetOutputsInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_dependency_graph(params: DependencyGraphInput, ctx=None) -> str:
+async def tf_dependency_graph(params: DependencyGraphInput, ctx: Context) -> str:
     """Get the dependency tree for a specific resource.
 
     Walks the dependency chain up to the specified depth, showing what each
@@ -546,7 +546,7 @@ async def tf_dependency_graph(params: DependencyGraphInput, ctx=None) -> str:
     Returns:
         str: Dependency tree in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     resources = _extract_resources(state)
 
@@ -597,7 +597,7 @@ async def tf_dependency_graph(params: DependencyGraphInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_diff_state(params: DiffStateInput, ctx=None) -> str:
+async def tf_diff_state(params: DiffStateInput, ctx: Context) -> str:
     """Compare the current state against another state file.
 
     Identifies resources that were added, removed, or changed between the two
@@ -607,7 +607,7 @@ async def tf_diff_state(params: DiffStateInput, ctx=None) -> str:
     Returns:
         str: Diff report in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     current_state = await loader.load()
 
     other_raw = Path(params.other_state_path).read_text()
@@ -668,7 +668,7 @@ async def tf_diff_state(params: DiffStateInput, ctx=None) -> str:
         "openWorldHint": False,
     },
 )
-async def tf_summary(params: SummaryInput, ctx=None) -> str:
+async def tf_summary(params: SummaryInput, ctx: Context) -> str:
     """Get a high-level summary of the current Terraform state.
 
     Returns resource counts by type, module breakdown, provider distribution,
@@ -677,7 +677,7 @@ async def tf_summary(params: SummaryInput, ctx=None) -> str:
     Returns:
         str: Summary in the requested format.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load()
     resources = _extract_resources(state)
 
@@ -737,7 +737,7 @@ async def tf_summary(params: SummaryInput, ctx=None) -> str:
         "openWorldHint": True,
     },
 )
-async def tf_refresh_cache(params: RefreshInput, ctx=None) -> str:
+async def tf_refresh_cache(params: RefreshInput, ctx: Context) -> str:
     """Force-refresh the cached Terraform state from the backend.
 
     Call this after running terraform apply to ensure the MCP server
@@ -746,7 +746,7 @@ async def tf_refresh_cache(params: RefreshInput, ctx=None) -> str:
     Returns:
         str: Confirmation message with state metadata.
     """
-    loader: StateLoader = ctx.request_context.lifespan_state["loader"]
+    loader: StateLoader = ctx.request_context.lifespan_context["loader"]
     state = await loader.load(force_refresh=True)
     resource_count = len(_extract_resources(state))
     return (
