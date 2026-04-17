@@ -22,7 +22,7 @@ All tools support `response_format: "markdown"` (default) or `"json"`.
 ### 1. Install
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### 2. Configure a backend
@@ -58,7 +58,7 @@ export TF_CLOUD_WORKSPACE=your-workspace
 
 **stdio (for Claude Desktop, Cursor, etc.):**
 ```bash
-python server.py
+uv run server.py
 ```
 
 **Streamable HTTP (for remote/multi-client):**
@@ -74,8 +74,8 @@ mcp.run(transport="streamable_http", port=8080)
 {
   "mcpServers": {
     "terraform-state": {
-      "command": "python",
-      "args": ["/path/to/terraform-state-mcp/server.py"],
+      "command": "uv",
+      "args": ["--directory", "/path/to/terraform-state-mcp", "run", "server.py"],
       "env": {
         "TF_STATE_PATH": "/path/to/terraform.tfstate"
       }
@@ -86,7 +86,20 @@ mcp.run(transport="streamable_http", port=8080)
 
 **Claude Code:**
 ```bash
-claude mcp add terraform-state -- python /path/to/server.py
+claude mcp add terraform-state -- uv --directory /path/to/terraform-state-mcp run server.py
+```
+
+## Development
+
+```bash
+# Install all dependencies including dev tools
+uv sync
+
+# Run linting
+uv run ruff check .
+
+# Run tests
+uv run pytest
 ```
 
 ## Example Queries
